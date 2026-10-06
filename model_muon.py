@@ -1,31 +1,5 @@
-"""Score model of record for the MUON-DECAY distribution (smooth, labelled 3-body final state).  Self-contained:
-this file + train_muon.py + utils.py are all that is needed to train it (sample.py / evolution.py evaluate it).
-
-This configuration reproduces and slightly improves on the paper's muon-decay results (arXiv:2604.02415 Figs. 1-5,
-ablation of Sept 2026).  It is deliberately the ORIGINAL paper model with only the generic training/sampling
-improvements kept.  Reference for every "UNCHANGED"/"CHANGE" below: phasespace_diffusion/model.py and train.py of
-the original package.
-
-  network      UNCHANGED  the paper's MLP: 4 layers of width 256, SiLU, on the flat 3N-vector + 64-dim sinusoidal
-                          embedding of t/T, zero-initialised output layer; output IS the score (no sigma_t scaling).
-                          Not permutation-equivariant, so it can represent labelled particles (the transformer of
-                          model_singular.py cannot: it learns the permutation-symmetrised density).
-  drift        UNCHANGED  the paper's reference score -(1 + 1/|q|) q^  (no regularisation).
-  schedule     UNCHANGED  the paper's linear gamma 0.002 -> 0.01 over T = 500 steps (total time 3), no geometric phase.
-  loss         UNCHANGED  implicit score matching with the EXACT divergence (3N backward passes), loss weight
-                          (1 - t/T + 0.01), ONE time step per batch drawn with probability ~ (1 - t/T + 0.01)^2,
-                          forward process cached at every step.
-  embedding    CHANGE     one fixed copy with b = 0 and x = 0.15 (the data then sits at the prior's scale, mean |q| ~ 2;
-                          the paper's run used a random RAMBO (b, x) with x = 0.18).  b = 0 removes the boost-induced
-                          angular anisotropy.
-  optimiser    CHANGE     AdamW lr 3e-4 (paper: 1e-3), 500 epochs on all 500k events (paper: 100 epochs), EMA 0.999
-                          of the weights is the model (paper: lowest-loss epoch); periodic checkpoints.
-  sampler      CHANGE     posterior-variance noise 2 gamma sigma_{t-1}^2/sigma_t^2 and a noiseless last step
-                          (paper: Euler-Maruyama with noise 2 gamma).
-
-Why not the singular model of model_singular.py: on this distribution its sigma_t^2 loss weighting over-populates
-the soft tail by a factor 2-3 and its geometric small-step phase slows the bulk fit badly (ablation of Sept 2026,
-improved/STATE.md).
+"""Score model for the muon distribution (smooth, labelled 3-body final state).  Self-contained:
+this file + train_muon.py + utils.py are all that is needed to train it
 """
 
 import copy
@@ -59,12 +33,12 @@ class MuonConfig:
     gamma_min: float = 0.002
     gamma_max: float = 0.01
     # training
-    batch_size: int = 1024         # paper
-    n_epochs: int = 500            # paper: 100
-    lr: float = 3e-4               # paper: 1e-3
-    weight_decay: float = 1e-4     # paper
-    grad_clip: float = 1.0         # paper
-    ema_decay: float = 0.999       # CHANGE (paper: lowest-loss epoch)
+    batch_size: int = 1024
+    n_epochs: int = 500
+    lr: float = 3e-4
+    weight_decay: float = 1e-4
+    grad_clip: float = 1.0
+    ema_decay: float = 0.999 
     device_str: str = "cuda"
 
     @property
@@ -77,10 +51,9 @@ MUON_X = 0.15              # puts the 3-body data at the prior's scale (mean |q|
 
 
 # ---------------------------------------------------------------------------
-# Network (UNCHANGED from the original ScoreNetwork)
+# Network
 # ---------------------------------------------------------------------------
 class SinusoidalTimeEmbedding(nn.Module):
-    """UNCHANGED from the original."""
 
     def __init__(self, dim, max_period=10000):
         super().__init__()
@@ -96,7 +69,7 @@ class SinusoidalTimeEmbedding(nn.Module):
 
 
 class MuonScoreNetwork(nn.Module):
-    """UNCHANGED architecture of the original ScoreNetwork: n_layers x (Linear, SiLU) on [flat Q, time embedding],
+    """n_layers x (Linear, SiLU) on [flat Q, time embedding],
     linear output to 3N, zero-initialised.  The output is the score itself."""
 
     def __init__(self, cfg: MuonConfig):
@@ -136,7 +109,7 @@ class MuonDiffusionModel:
         self.dtype = torch.float32
         self.seed = seed
         if seed >= 0:
-            torch.manual_seed(seed)                           # same as original: seed before weight init
+            torch.manual_seed(seed)                           # seed before weight init
         self.gammas = self._build_gamma_schedule() if gammas is None else torch.as_tensor(gammas, device=self.device, dtype=self.dtype).clone()
         cum = torch.cat([torch.zeros(1, device=self.device), torch.cumsum(self.gammas, 0)])
         self.sigmas = torch.sqrt(2 * cum)                     # sigma_t^2 = 2 sum_{s<t} gamma_s, t = 0..T (sampler only)
@@ -145,13 +118,13 @@ class MuonDiffusionModel:
 
     # -- schedule: the paper's linear ramp ----------------------------------
     def _build_gamma_schedule(self):
-        """UNCHANGED: linear gamma_min -> gamma_max over t_steps."""
+        """linear gamma_min -> gamma_max over t_steps."""
         cfg = self.cfg
         return torch.linspace(cfg.gamma_min, cfg.gamma_max, cfg.t_steps, device=self.device)
 
     # -- drift: the paper's reference score ----------------------------------
     def ref_score(self, Q):
-        """UNCHANGED: the paper's reference score -(1 + 1/|q|) q^ = -(1 + 1/|q|)/|q| q  (qspace_score of the original package)."""
+        """unregularized reference score -(1 + 1/|q|) q^ = -(1 + 1/|q|)/|q| q"""
         q = torch.linalg.norm(Q, dim=2)
         return -(1 + 1 / q[:, :, None]) / q[:, :, None] * Q
 
@@ -160,8 +133,7 @@ class MuonDiffusionModel:
     def forward_process(self, q, gammas):
         """Apply the forward process to a batch of q-space vectors q (B, N, 3) with the array of step sizes
         `gammas` (normally metadata['gammas'] = the training schedule, or a prefix of it to stop at an
-        intermediate time).  Returns the final state Q_t, t = len(gammas).  UNCHANGED from the original
-        forward_process (without its OU option)."""
+        intermediate time).  Returns the final state Q_t, t = len(gammas)."""
         gammas = torch.as_tensor(gammas, device=self.device, dtype=self.dtype)
         Q = q.to(self.device, self.dtype).clone()
         for g in gammas:
@@ -170,7 +142,7 @@ class MuonDiffusionModel:
 
     @torch.no_grad()
     def precompute_cache(self, Q0, verbose=True):
-        """UNCHANGED: the forward Langevin process Q_{t+1} = Q_t + gamma_t f(Q_t) + sqrt(2 gamma_t) Z, cached at every step:
+        """the forward Langevin process Q_{t+1} = Q_t + gamma_t f(Q_t) + sqrt(2 gamma_t) Z, cached at every step:
         cache[t - 1] = Q_t for t = 1..T."""
         T = len(self.gammas)
         cache = torch.empty((T, Q0.shape[0], self.cfg.n_particles, 3), device=self.device, dtype=self.dtype)
@@ -185,9 +157,9 @@ class MuonDiffusionModel:
             print(f"Forward cache: {tuple(cache.shape)} ({cache.numel() * 4 / 1e9:.1f} GB) in {time.time() - t0:.1f}s", flush=True)
         return cache
 
-    # -- ISM loss (UNCHANGED) -------------------------------------------------
+    # -- ISM loss -------------------------------------------------
     def _score_and_div(self, Q, t):
-        """UNCHANGED: exact divergence, one backward pass per input component (3N = 9 passes)."""
+        """exact divergence, one backward pass per input component (3N = 9 passes)."""
         B = Q.shape[0]
         Qf = Q.reshape(B, -1).detach().requires_grad_(True)
         s = self.net(Qf.reshape(B, self.cfg.n_particles, 3), t).reshape(B, -1)
@@ -198,7 +170,7 @@ class MuonDiffusionModel:
         return s, div
 
     def _draw_time(self):
-        """One cache row / integer step per batch, drawn with probability ~ (1 - t/T + 0.01)^2 (UNCHANGED)."""
+        """One cache row / integer step per batch, drawn with probability ~ (1 - t/T + 0.01)^2."""
         times = self._cache_times
         if not hasattr(self, "_tw"):
             w = (1 - times.to(self.dtype) / self.cfg.t_steps + 0.01) ** self.TIME_WEIGHT_POWER
@@ -207,7 +179,7 @@ class MuonDiffusionModel:
         return row, times[row]
 
     def compute_loss(self, cache):
-        """UNCHANGED objective of the original _compute_ism_loss_cached:  (1 - t/T + 0.01) * mean(0.5 |s|^2 + div s)
+        """objective:  (1 - t/T + 0.01) * mean(0.5 |s|^2 + div s)
         with ONE time step per batch."""
         cfg = self.cfg
         n_idx = torch.randint(cache.shape[1], (cfg.batch_size,), device=self.device)
@@ -221,10 +193,10 @@ class MuonDiffusionModel:
 
     # -- training -----------------------------------------------------------
     def train(self, q_train, seed=-1, callback=None, ckpt_path=None):
-        """Training loop.  Same structure as the original train(): AdamW + cosine annealing, grad clipping, loss
-        averaged per epoch, callback(epoch, avg_loss).  CHANGE: an EMA of the weights (decay ema_decay), updated
+        """Training loop. AdamW + cosine annealing, grad clipping, loss
+        averaged per epoch, callback(epoch, avg_loss). EMA of the weights (decay ema_decay), updated
         after every optimiser step, is what save() stores as 'ema_state_dict' and what sample.py uses; the raw
-        weights are stored as 'state_dict'.  The original kept the lowest-loss epoch instead.
+        weights are stored as 'state_dict'.
         model.pt is (re)written every 10 epochs so an interrupted job leaves a usable model."""
         cfg = self.cfg
         if seed >= 0:
@@ -273,8 +245,7 @@ class MuonDiffusionModel:
             Q - gamma_t f(Q) + 2 gamma_t s_theta(Q, t/T) + sqrt(var_t) Z ,
             var_t = 2 gamma_t sigma_{t-1}^2 / sigma_t^2 ,   sigma_t^2 = 2 sum_{s<t} gamma_s ,
         where gamma_t = gammas[t_idx - 1] is the forward step that led from t_idx - 1 to t_idx.
-        CHANGE vs the original reverse_step: the noise variance is the posterior variance (original: 2 gamma), and
-        because sigma_0 = 0 the last step (t_idx = 1) is automatically noiseless.  Drift terms unchanged."""
+        Because sigma_0 = 0 the last step (t_idx = 1) is automatically noiseless.  Drift terms unchanged."""
         gammas = torch.as_tensor(gammas, device=self.device, dtype=self.dtype)
         T = len(gammas)
         gamma = gammas[t_idx - 1]
@@ -294,7 +265,7 @@ class MuonDiffusionModel:
         """Apply the reverse process to a batch of q-space vectors q (B, N, 3) that sit at integer time t (i.e. after
         t forward steps), down to t = 0, with the score network `score_net` (a callable score_net(Q, t_normalized),
         e.g. model.net) and the step sizes `gammas` (the training schedule, metadata['gammas']).  Returns Q_0.
-        Same loop as sample_fromQ_at_t of omnilearn_lightning/diffusion.py: s = T - t .. T - 1, integer times t .. 1."""
+        """
         if seed >= 0:
             torch.manual_seed(seed)
         gammas = torch.as_tensor(gammas, device=self.device, dtype=self.dtype)
@@ -319,7 +290,7 @@ class MuonDiffusionModel:
 
     # -- checkpointing ------------------------------------------------------
     def save(self, path):
-        """Same format as the original save() plus the EMA weights, the explicit schedule and the model tag."""
+        """Includes EMA weights, the explicit schedule and the model tag."""
         torch.save({"model": self.MODEL_TAG, "config": asdict(self.cfg), "seed": self.seed,
                     "gammas": self.gammas.detach().cpu().clone(),
                     "state_dict": self.net.state_dict(),
@@ -327,7 +298,7 @@ class MuonDiffusionModel:
 
     @classmethod
     def load(cls, path, device="cuda", weights="ema"):
-        """Load a checkpoint written by save().  weights = 'ema' (the model of record) or 'raw'.
+        """Load a checkpoint written by save().  weights = 'ema' or 'raw'.
         The schedule is the 'gammas' array stored in the checkpoint (never rebuilt from the config)."""
         ck = torch.load(path, map_location="cpu", weights_only=False)
         if ck.get("model") != cls.MODEL_TAG:
@@ -355,6 +326,6 @@ def load_pspace(path, n=0):
 
 
 def embed_fixed(ps, b=MUON_B, x=MUON_X):
-    """CHANGE vs original fluff_in_q_space (N_mult random (b, x) copies of the data): a single copy with one
-    fixed boost b and scale x,  q = Lambda(-b) p / x  (utils.ps_to_qs, unchanged)."""
+    """A single copy with one
+    fixed boost b and scale x,  q = Lambda(-b) p / x  (utils.ps_to_qs)."""
     return ps_to_qs(ps, torch.tensor([b], dtype=ps.dtype), torch.tensor([x], dtype=ps.dtype))
