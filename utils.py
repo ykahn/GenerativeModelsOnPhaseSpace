@@ -1,14 +1,4 @@
-"""Phase-space utilities needed by the model of record.
-
-Every function in this file is copied UNCHANGED from the original package
-(phasespace_diffusion/utils.py of arXiv:2604.02415).  Only the functions that
-the training / sampling pipeline actually calls are kept:
-
-    get_device, make_generator,
-    sample_qspace                  : RAMBO q-space prior p_ref (start of the reverse process)
-    get_b_x_from_qs, Hmu           : boost b and scale x of a q-space point; the boost map
-    qs_to_ps, ps_to_qs             : the conformal map q -> p and its inverse (fixed b, x)
-    min_pairwise_dot               : tau = min_{I != J} p_I . p_J  (evaluation only)
+"""Phase-space utilities needed for all models
 """
 
 import math
