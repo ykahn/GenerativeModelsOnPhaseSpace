@@ -1,7 +1,7 @@
-"""Sample events from a trained model.  Sampling only: no plots, no comparison with the truth.
+"""Sample events from a trained model.
 
 Usage:
-    python generate.py --ckpt runs/aps_xi40/model.pt --n-samples 100000 --out runs/aps_xi40/generated.pt
+    python generate.py --ckpt TrainedModels/model.pt --n-samples 100000 --out GeneratedEvents/generated.pt
                        [--weights ema|raw] [--seed 0] [--save-q] [--device cuda]
 
 Loads the checkpoint with the model class named by its 'model' tag (model_singular.py or model_muon.py), runs the
