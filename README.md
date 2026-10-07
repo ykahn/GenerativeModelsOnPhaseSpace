@@ -7,7 +7,7 @@ The comparisons with other diffusion and flow matching architectures in Sec. IV.
 
 All models use the utilities in `utils.py`.
 
-Trained models, training data, and generated samples used to make the plots in the paper are in the directories TrainedModels, TrainingData, and GeneratedSamples, respectively. Models are saved as PyTorch files which may be loaded with the `load` method in the corresponding model Python file. Training data is saved as `(NEvents, NParticles,3)` torch arrays of 3-vectors in p-space in the CM frame with unit energy.
+Trained models, training data, and generated samples used to make the plots in the paper are in the directories TrainedModels, TrainingData, and GeneratedSamples, respectively. Models are saved as PyTorch files which may be loaded with the `load` method in the corresponding model Python file. Training data is saved as `(NEvents, NParticles,3)` torch arrays of 3-vectors in p-space in the CM frame with unit energy. The 1M SARGE events are too large to store here, so they may be generated with `SARGE.py`.
 
 All figures used in the paper may be generated with `PlotsForPaper.ipynb`.
 
