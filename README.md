@@ -3,7 +3,7 @@ Public code repository for arXiv:2604.02415
 
 The model in Sec. III.A is `muon_model.py`, trained with `train_muon.py`. The models of Sec. III.B and IV.A are `model_singular.py`, trained with `train_singular.py`. Both modes are sampled with `generate.py`.
 
-The comparisons with other diffusion and flow matching architectures in Sec. IV.B. are `model_pspace_ddpm.py`, `model_pspace_fm.py`, and `model_qspace_fm.py`, trained and generated with the corresponding scripts.
+The comparisons with other diffusion and flow matching architectures in Sec. IV.B. are `model_pspace_ddpm.py`, `model_pspace_fm.py`, and `model_qspace_fm.py`, trained and sampled with the corresponding `train` and `generate` scripts.
 
 All models use the utilities in `utils.py`.
 
