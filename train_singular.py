@@ -1,8 +1,8 @@
-"""Train the model of record for SINGULAR distributions (qqg, APS) on a p-space dataset.  Training only (see sample.py).
+"""Train the SINGULAR distribution (qqg, APS) models on a p-space dataset.  Training only (sample with generate.py).
 Needs only model_singular.py and utils.py.  For the muon-decay (smooth, labelled) distribution use train_muon.py.
 
 Usage:
-    python train_singular.py --data-file datasets/SARGE_N10_xi40_1M.pt --output-dir runs/aps_xi40 [options]
+    python train_singular.py --data-file TrainingData/SARGE_N10_xi40_1M.pt --output-dir runs/aps_xi40 [options]
 
 Outputs in --output-dir:
     args.json        the command-line arguments
@@ -13,15 +13,6 @@ Outputs in --output-dir:
     metadata.pt      dict: T (number of diffusion steps), gammas (list of the T step sizes), N (training events), n_particles,
                      epsilon (regularisation of the reference drift, = the model's ref_eps)
     ckpts/epNNNN.pt  raw + EMA weights every --ckpt-every epochs (for evolution.py)
-
-Comparison with the original driver phasespace_diffusion/train.py:
-    same     --data-file / --output-dir / --seed / --n-train / --batch-size / --lr / --n-epochs, the training log and loss plot
-    removed  --data muon_decay|uniform (built-in toy data), --n-particles (now read from the file), the MLP size flags
-             (--hidden-dim), --schedule-type (linear only), --fluff-mult / --xset / --qs-for-bxs (random (b, x) augmentation),
-             --loss-weight-power (weight is sigma_t^2), the validation stage (moved to sample.py), multi-GPU (DDP) support
-    added    --x / --b (the single fixed embedding), --t-geom / --gamma-geom / --gamma-geom-growth (geometric small-step phase),
-             --ref-eps, --ema-decay, --ckpt-every, --cache-dense-until / --cache-stride
-    changed  defaults: see model.Config (T=1140, gamma_max 0.02, lr 3e-4, 700 epochs, all events of the file).
 """
 
 import argparse
@@ -49,8 +40,8 @@ def parse_args(argv=None):
     p.add_argument("--n-train", type=int, default=0, help="events used for training (0 = all events in the file)")
     p.add_argument("--seed", type=int, default=0)
     # embedding
-    p.add_argument("--x", type=float, default=APS_X, help="scale of the fixed q-space embedding")
-    p.add_argument("--b", type=float, nargs=3, default=list(APS_B), help="boost of the fixed q-space embedding")
+    p.add_argument("--x", type=float, default=APS_X, help="scale of the fixed q-space embedding (default is 0.0846 for N = 10 APS events)")
+    p.add_argument("--b", type=float, nargs=3, default=list(APS_B), help="boost of the fixed q-space embedding (default is (0,0,0)")
     # schedule
     p.add_argument("--t-steps", type=int, default=d.t_steps, help="total diffusion steps (incl. the geometric phase)")
     p.add_argument("--gamma-min", type=float, default=d.gamma_min, help="first step of the linear phase")
@@ -58,7 +49,7 @@ def parse_args(argv=None):
     p.add_argument("--t-geom", type=int, default=d.t_geom, help="number of geometric small steps at the start")
     p.add_argument("--gamma-geom", type=float, default=d.gamma_geom, help="first geometric step (sigma_1 = sqrt(2 gamma))")
     p.add_argument("--gamma-geom-growth", type=float, default=d.gamma_geom_growth, help="growth factor of the geometric steps")
-    p.add_argument("--ref-eps", type=float, default=d.ref_eps, help="regularisation of the reference score")
+    p.add_argument("--ref-eps", type=float, default=d.ref_eps, help="regularization of the reference score")
     # training
     p.add_argument("--n-epochs", type=int, default=d.n_epochs)
     p.add_argument("--batch-size", type=int, default=d.batch_size)
