@@ -1,8 +1,8 @@
-"""Train the muon-decay model of record (model_muon.py) on a p-space dataset.  Training only, generate with generate.py.
+"""Train the muon-decay model of record (model_muon.py) on a p-space dataset.  Training only (sample with generate.py).
 Needs only model_muon.py and utils.py.
 
 Usage:
-    python train_muon.py --data-file Datasets/muon_500k.pt --output-dir runs/muon [options]
+    python train_muon.py --data-file TrainingData/muon_500k.pt --output-dir runs/muon [options]
 
 Outputs (same layout as train_singular.py): args.json, training.log, loss.pdf, model.pt (raw + EMA weights + schedule), ckpts/epNNNN.pt,
 Q0.pt (embedded q-space training data), metadata.pt (T, gammas, N, n_particles, epsilon = 0).
