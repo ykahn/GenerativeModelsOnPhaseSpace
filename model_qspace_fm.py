@@ -1,4 +1,4 @@
-"""Comparison model: flow matching in q-space with the RAMBO prior p_ref (paper Sec. II E, Eqs. (12)-(13)).
+"""Comparison model: flow matching in q-space with the RAMBO prior p_ref.
 Self-contained: this file + utils.py + train_qspace_fm.py (training) + generate_qspace_fm.py (sampling).
 
   data        the fixed embedding of model_singular: q = Lambda(-b) p / x, b = 0, x = 0.0846 (APS N=10).
