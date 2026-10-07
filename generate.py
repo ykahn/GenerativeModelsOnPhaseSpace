@@ -39,7 +39,7 @@ def main(argv=None):
     p.add_argument("--out", required=True, help="output .pt file: p-space events (n_samples, n_particles, 3)")
     p.add_argument("--n-samples", type=int, default=100000)
     p.add_argument("--seed", type=int, default=0)
-    p.add_argument("--weights", choices=["ema", "raw"], default="ema", help="EMA weights (model of record) or raw weights")
+    p.add_argument("--weights", choices=["ema", "raw"], default="ema", help="EMA weights or raw weights")
     p.add_argument("--save-q", action="store_true", help="also write the q-space points to <out stem>_q.pt")
     p.add_argument("--device", default="cuda")
     a = p.parse_args(argv)
