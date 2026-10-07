@@ -1,8 +1,8 @@
-"""Train the muon-decay model of record (model_muon.py) on a p-space dataset.  Training only (see sample.py).
+"""Train the muon-decay model of record (model_muon.py) on a p-space dataset.  Training only, generate with generate.py.
 Needs only model_muon.py and utils.py.
 
 Usage:
-    python train_muon.py --data-file datasets/muon_500k.pt --output-dir runs/muon [options]
+    python train_muon.py --data-file Datasets/muon_500k.pt --output-dir runs/muon [options]
 
 Outputs (same layout as train_singular.py): args.json, training.log, loss.pdf, model.pt (raw + EMA weights + schedule), ckpts/epNNNN.pt,
 Q0.pt (embedded q-space training data), metadata.pt (T, gammas, N, n_particles, epsilon = 0).
@@ -26,14 +26,14 @@ from model_muon import MUON_B, MUON_X, MuonConfig, MuonDiffusionModel, embed_fix
 
 def parse_args(argv=None):
     d = MuonConfig()
-    p = argparse.ArgumentParser(description="Train the muon-decay q-space diffusion model of record",
+    p = argparse.ArgumentParser(description="Train the muon-decay q-space diffusion model",
                                 formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     p.add_argument("--data-file", required=True, help=".pt file with p-space events (N_events, 3, 3)")
     p.add_argument("--output-dir", required=True)
     p.add_argument("--n-train", type=int, default=0, help="events used for training (0 = all events in the file)")
     p.add_argument("--seed", type=int, default=0)
-    p.add_argument("--x", type=float, default=MUON_X, help="scale of the fixed q-space embedding (data at the prior's scale)")
-    p.add_argument("--b", type=float, nargs=3, default=list(MUON_B), help="boost of the fixed q-space embedding (0 0 0: no boost)")
+    p.add_argument("--x", type=float, default=MUON_X, help="scale of the fixed q-space embedding (default is 0.15)")
+    p.add_argument("--b", type=float, nargs=3, default=list(MUON_B), help="boost of the fixed q-space embedding (0 0 0: no boost is default)")
     p.add_argument("--t-steps", type=int, default=d.t_steps)
     p.add_argument("--gamma-min", type=float, default=d.gamma_min)
     p.add_argument("--gamma-max", type=float, default=d.gamma_max)
@@ -75,7 +75,7 @@ def main(argv=None):
     model.save(os.path.join(a.output_dir, "model.pt"))
     logf.close()
     fig, ax = plt.subplots(figsize=(8, 3.5))
-    ax.plot(losses); ax.set_xlabel("epoch"); ax.set_ylabel("ISM loss (paper weighting, exact divergence)")
+    ax.plot(losses); ax.set_xlabel("epoch"); ax.set_ylabel("ISM loss (time weighting, exact divergence)")
     ax.set_title(os.path.basename(os.path.normpath(a.output_dir))); ax.grid(True)
     fig.savefig(os.path.join(a.output_dir, "loss.pdf"), bbox_inches="tight"); plt.close(fig)
     print("Done:", a.output_dir, flush=True)
