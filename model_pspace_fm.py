@@ -1,5 +1,5 @@
-"""Comparison model: flow matching directly on the p-space 3-momenta P = {p_I} with a Gaussian prior (paper Sec. V C,
-Eqs. (12)-(13) applied to P).  Self-contained: this file + train_pspace_fm.py (training) + generate_pspace_fm.py
+"""Comparison model: flow matching directly on the p-space 3-momenta P = {p_I} with a Gaussian prior.
+Self-contained: this file + train_pspace_fm.py (training) + generate_pspace_fm.py
 (sampling).  Generated events do NOT conserve energy-momentum (paper Table I).
 
   data        P / x with x = 0.0846, the scale of the q-space embedding of model_singular (component std 0.091 -> 1.08);
