@@ -11,3 +11,4 @@ Trained models, training data, and generated samples used to make the plots in t
 
 All figures used in the paper may be generated with `PlotsForPaper.ipynb`.
 
+[to do: add generated samples from the Sec. IV.B. models, add plotting notebook]
