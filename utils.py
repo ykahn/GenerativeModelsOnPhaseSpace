@@ -109,3 +109,64 @@ def min_pairwise_dot(momenta):
     pipj[:, mask] = float("inf")
 
     return pipj.amin(dim=-1).amin(dim=-1)                        # (N,)
+
+def muon_decay_matrix_element(threeparticles):
+    """Toy matrix element: u = E3 * (E1*E2 - p1.p2).
+
+    Args:
+        threeparticles: (..., 3, 3) tensor.
+
+    Returns:
+        (...) scalar per event.
+    """
+    if threeparticles.ndim == 2:
+        threeparticles = threeparticles.unsqueeze(0)
+        squeeze_back = True
+    else:
+        squeeze_back = False
+
+    p1 = threeparticles[..., 0, :]
+    p2 = threeparticles[..., 1, :]
+    p3 = threeparticles[..., 2, :]
+
+    E1 = torch.linalg.norm(p1, dim=-1)
+    E2 = torch.linalg.norm(p2, dim=-1)
+    E3 = torch.linalg.norm(p3, dim=-1)
+
+    p1dotp2 = (p1 * p2).sum(dim=-1)
+    u = E3 * (E1 * E2 - p1dotp2)
+    return u.squeeze(0) if squeeze_back else u
+
+
+def muon_decay_rejection_sample(Npts, batch_size=8192, energy=1.0,
+                                max_weight=0.08, seed=-1,
+                                device=None, dtype=torch.float32):
+    """Rejection sampling from the muon-decay distribution.
+
+    Returns:
+        (Npts, 3, 3) tensor of accepted events.
+    """
+    if device is None:
+        device = get_device()
+
+    generator = make_generator(seed, device)
+
+    accepted = []
+    total = 0
+    while total < Npts:
+        # Derive a sub-seed for proposal generation from our generator
+        proposal_seed = int(torch.randint(0, 2**31, (1,),
+                                          generator=generator).item())
+        ps3 = gen_massless_phase_space(
+            nevents=batch_size, nparticles=3, energy=energy,
+            seed=proposal_seed, device=device, dtype=dtype,
+        )
+        u = muon_decay_matrix_element(ps3)
+        s = torch.rand((batch_size,), device=device, dtype=dtype,
+                        generator=generator) * max_weight
+        keep = u > s
+        if keep.any():
+            accepted.append(ps3[keep])
+            total += keep.sum().item()
+
+    return torch.cat(accepted, dim=0)[:Npts]
