@@ -89,6 +89,14 @@ def ps_to_qs(ps, bs, xs):
     """Inverse map: p-space to q-space."""
     return Hmu(ps, -bs) / xs[:, None, None]
 
+def gen_massless_phase_space(nevents, nparticles, energy=1.0, seed=-1,
+                             device=None, dtype=torch.float32):
+    """RAMBO sampling of uniform massless phase space."""
+    if device is None:
+        device = get_device()
+    qs = sample_qspace(nevents, nparticles, seed=seed, device=device, dtype=dtype)
+    bs, xs = get_b_x_from_qs(qs, energy=energy)
+    return Hmu(qs, bs) * xs[:, None, None]
 
 def min_pairwise_dot(momenta):
     """min{E_i E_j - p_i . p_j} over all pairs, for arbitrary particle count.
@@ -140,7 +148,7 @@ def muon_decay_matrix_element(threeparticles):
 
 def muon_decay_rejection_sample(Npts, batch_size=8192, energy=1.0,
                                 max_weight=0.08, seed=-1,
-                                device=None, dtype=torch.float32):
+                                device='cpu', dtype=torch.float32):
     """Rejection sampling from the muon-decay distribution.
 
     Returns:
